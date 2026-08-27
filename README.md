@@ -16,7 +16,7 @@ Selamat datang di repositori tugas mata kuliah **Pemrograman Mobile (Kelas C)**.
 | 1 | M. Wildan Humaisi S. Budi | `D121241058` |
 | 2 | Ahmad Faizur Rahman | `D121241107` |
 | 3 | Muhammad Naufal Aisy Afrah Bidja | `D121241037` |
-| 4 | Muhammad Faiq | `D121241109` |
+| 4 | Muhammad Faiq Fadhlul Aziz | `D121241109` |
 
 ---
 
