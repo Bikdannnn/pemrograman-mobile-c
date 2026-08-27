@@ -1,0 +1,60 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode string covers standard VS Code settings
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Symbol processing related
+android/app/src/main/res/raw/keep.xml
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/ServiceDefinitions.json
+lib/generated_plugin_registrant.dart
+
+# Symbol processing specific to Android
+android/app/libs/armeabi-v7a/libflutter.so
+android/app/libs/arm64-v8a/libflutter.so
+android/app/libs/x86/libflutter.so
+android/app/libs/x86_64/libflutter.so
+
+# Coverage
+coverage/
+
+# Android Studio / Gradle
+.gradle/
+build/
+*.hprof
+
+# Flutter local properties
+local.properties
