@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/services/open_culinary_api_service.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
 import '../user/user_auth_screen.dart';
 import '../user/user_profile_screen.dart';
 import 'owner_auth_screen.dart';
 
-/// Layar `Profil Restoran` pada Role PEMILIK RESTORAN sesuai `PEMILIK RESTORAN.svg`:
-/// - Menampilkan logo bulat `Warung Bu Atik`, nama `"Warung Bu Atik ✏️"`, deskripsi usaha,
-///   serta 3 menu utama:
-///   1. `Manajemen Menu` -> membuka `OwnerMenuManagementScreen`
-///   2. `Lihat Rating & Review` -> membuka `OwnerRatingReviewListScreen`
-///   3. `Pengaturan` -> membuka `FoodViewSettingsScreen(isOwner: true)`
+/// Layar `Profil Restoran` pada Role PEMILIK RESTORAN sesuai `PEMILIK RESTORAN.svg`.
 class OwnerProfileScreen extends StatelessWidget {
   const OwnerProfileScreen({super.key});
 
@@ -197,16 +193,15 @@ class _OwnerActionRow extends StatelessWidget {
   }
 }
 
-/// Layar `Manajemen Menu` sesuai `PEMILIK RESTORAN.svg`:
-/// - Header hijau tua `"Manajemen Menu"`
-/// - Tombol atas `"+ Tambah menu baru"` ber-border abu tipis dengan ikon `+` oranye
-/// - Daftar kartu menu (`FoodViewOwnerMenuCard`) lengkap dengan tombol `⋮` (`Edit` / `Hapus`)
+/// Layar `Manajemen Menu` sesuai `PEMILIK RESTORAN.svg`.
 class OwnerMenuManagementScreen extends StatelessWidget {
   const OwnerMenuManagementScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<FoodViewUiState>();
+    final ownerMenus =
+        state.menus.where((m) => m.restaurantId == 'r_buatik').toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -262,12 +257,19 @@ class OwnerMenuManagementScreen extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          for (final menu in state.menus)
+          for (final menu in ownerMenus)
             FoodViewOwnerMenuCard(
               name: menu.name,
               description: menu.description,
               price: menu.price,
               imageAsset: menu.imageAsset,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => OwnerMenuReviewDetailScreen(menu: menu),
+                  ),
+                );
+              },
               onEdit: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -285,12 +287,8 @@ class OwnerMenuManagementScreen extends StatelessWidget {
   }
 }
 
-/// Layar `Tambah Menu` & `Edit Menu` sesuai 4 frame form pada `PEMILIK RESTORAN.svg`:
-/// - Field 1: `Nama menu` (`Ayam Rica` / `Ayam Goreng Rica`)
-/// - Field 2: `Harga menu` (`25.000`)
-/// - Field 3: `Deskripsi menu` + kotak teks abu-abu `"Ketikkan sesuatu..."`
-/// - Field 4: `Foto menu` + kotak upload (`"+ Tambah file"` -> `"ayam-goreng-rica.jpg"` + `"↻ Ubah"`)
-/// - Tombol `"Tambah"` atau `"Edit"` (abu-abu saat belum lengkap, oranye `#F0A04B` saat terisi)
+/// Layar `Tambah Menu` & `Edit Menu` sesuai `PEMILIK RESTORAN.svg`,
+/// dilengkapi fitur pilih cepat dari **Katalog Resep Open-Source API** (`DummyJSON` / `TheMealDB`).
 class OwnerMenuFormScreen extends StatefulWidget {
   final MenuModel? existingMenu;
 
@@ -308,6 +306,7 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
   late final TextEditingController _priceController;
   late final TextEditingController _descController;
   String? _photoFileName;
+  String? _networkImageUrl;
 
   bool get _isEditMode => widget.existingMenu != null;
 
@@ -321,6 +320,7 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
     );
     _descController = TextEditingController(text: m?.description ?? '');
     _photoFileName = m?.fileName;
+    _networkImageUrl = m?.networkImageUrl;
   }
 
   @override
@@ -337,13 +337,15 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
       _descController.text.trim().isNotEmpty &&
       _photoFileName != null;
 
-  void _fillDemoMenu() {
+  void _applyOpenApiDish(OpenApiDishModel dish) {
     setState(() {
-      _nameController.text = _isEditMode ? 'Ayam Goreng Rica' : 'Ayam Rica';
-      _priceController.text = '25.000';
-      _descController.text =
-          'Hidangan khas Indonesia berupa ayam yang digoreng lalu dibalut dengan sambal rica pedas khas Manado.';
-      _photoFileName = 'ayam-goreng-rica.jpg';
+      _nameController.text = dish.name;
+      _priceController.text = dish.estimatedPrice.replaceAll('Rp', '');
+      _descController.text = dish.instructions.isNotEmpty
+          ? dish.instructions
+          : 'Hidangan khas ${dish.areaOrCuisine} (${dish.caloriesPerServing} kkal).';
+      _photoFileName = '${dish.id}.jpg';
+      _networkImageUrl = dish.imageUrl.isNotEmpty ? dish.imageUrl : null;
     });
   }
 
@@ -368,6 +370,7 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
         name: _nameController.text.trim(),
         price: _priceController.text.trim(),
         description: _descController.text.trim(),
+        networkImageUrl: _networkImageUrl,
         fileName: _photoFileName!,
       );
       await FoodViewDialogs.showStatusPopup(
@@ -383,6 +386,9 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<FoodViewUiState>();
+    final apiDishes = state.openDishesState.dataOrNull ?? const [];
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -392,19 +398,11 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: _fillDemoMenu,
-            child: const Text(
-              'Isi Demo',
-              style: TextStyle(fontSize: 11, color: AppColors.primaryOrange),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FoodViewAuthInputField(
               controller: _nameController,
@@ -597,6 +595,38 @@ class _OwnerMenuFormScreenState extends State<OwnerMenuFormScreen> {
               enabled: _isFilled,
               onPressed: _submit,
             ),
+
+            if (apiDishes.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              const Text(
+                'Import Cepat dari Katalog Open-Source API:',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: apiDishes.take(6).map((dish) {
+                  return ActionChip(
+                    backgroundColor: AppColors.lightGreenPill,
+                    side: BorderSide.none,
+                    label: Text(
+                      '+ ${dish.name}',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.primaryGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () => _applyOpenApiDish(dish),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),
@@ -611,6 +641,8 @@ class OwnerRatingReviewListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<FoodViewUiState>();
+    final ownerMenus =
+        state.menus.where((m) => m.restaurantId == 'r_buatik').toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -624,9 +656,9 @@ class OwnerRatingReviewListScreen extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-        itemCount: state.menus.length,
+        itemCount: ownerMenus.length,
         itemBuilder: (context, index) {
-          final menu = state.menus[index];
+          final menu = ownerMenus[index];
           return FoodViewOwnerMenuCard(
             name: menu.name,
             description: menu.description,
@@ -647,8 +679,7 @@ class OwnerRatingReviewListScreen extends StatelessWidget {
   }
 }
 
-/// Layar Detail `Rating & Review` per Menu pada Role PEMILIK RESTORAN
-/// sesuai `PEMILIK RESTORAN.svg` (menampilkan foto hidangan, harga, deskripsi, dan `4 Komentar`).
+/// Layar Detail `Rating & Review` per Menu pada Role PEMILIK RESTORAN sesuai `PEMILIK RESTORAN.svg`.
 class OwnerMenuReviewDetailScreen extends StatelessWidget {
   final MenuModel menu;
 
@@ -676,12 +707,25 @@ class OwnerMenuReviewDetailScreen extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                menu.imageAsset,
-                width: double.infinity,
-                height: 195,
-                fit: BoxFit.cover,
-              ),
+              child: menu.networkImageUrl != null
+                  ? Image.network(
+                      menu.networkImageUrl!,
+                      width: double.infinity,
+                      height: 195,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        menu.imageAsset,
+                        width: double.infinity,
+                        height: 195,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Image.asset(
+                      menu.imageAsset,
+                      width: double.infinity,
+                      height: 195,
+                      fit: BoxFit.cover,
+                    ),
             ),
             const SizedBox(height: 12),
             Text(

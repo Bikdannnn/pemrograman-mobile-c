@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
+import 'user_menu_detail_screen.dart';
 import 'user_restaurant_detail_screen.dart';
 
-/// Layar Pencarian & Filter/Kategori Restoran sesuai `USER.svg`:
-/// - Header hijau tua dengan tombol kembali dan `FoodViewSearchBar`
-/// - Menampilkan keterangan `Filter: 1-2 km, Rp25.000-100.000` atau `Kategori : Nasi`
-/// - Daftar restoran yang sesuai (`Warung Bu Atik`, `RM. Bu Ati`, `Rumah Makan Mba Atun`, dsb.)
+/// Layar Pencarian & Filter/Kategori Restoran + Pencarian Katalog Open API sesuai `USER.svg`:
+/// - Filter berfungsi nyata berdasarkan Kategori (`Nasi`, `Minuman`, `Seafood`, `Ayam`, `Mie`),
+///   Jarak (`<1 km`, `1-2 km`, `2-5 km`, `>5 km`), Harga, dan Jam Operasional!
+/// - Setiap restoran yang diklik membuka halaman detail restoran tersebut (bukan hanya Warung Bu Atik!).
 class UserSearchScreen extends StatefulWidget {
   final String? initialCategory;
   final FoodViewFilterSelection initialFilter;
@@ -27,6 +28,15 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   late FoodViewFilterSelection _filter;
   String? _category;
+
+  static const List<String> _allCategories = [
+    'Semua',
+    'Nasi',
+    'Minuman',
+    'Seafood',
+    'Ayam',
+    'Mie',
+  ];
 
   @override
   void initState() {
@@ -68,6 +78,22 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     final results = state.restaurants.where((r) {
+      if (_category != null && _category != 'Semua') {
+        final matchCat = r.categoryTags.any(
+              (t) => t.toLowerCase() == _category!.toLowerCase(),
+            ) ||
+            r.category.toLowerCase().contains(_category!.toLowerCase());
+        if (!matchCat) return false;
+      }
+      if (_filter.distance != null && r.distanceTag != _filter.distance) {
+        return false;
+      }
+      if (_filter.price != null && r.priceTag != _filter.price) {
+        return false;
+      }
+      if (_filter.hours == '24 Jam' && !r.is24Hours) {
+        return false;
+      }
       if (query.isNotEmpty) {
         return r.name.toLowerCase().contains(query) ||
             r.category.toLowerCase().contains(query) ||
@@ -76,11 +102,24 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
       return true;
     }).toList();
 
-    final subtitleFilterText = _category != null
+    final matchingMenus = state.menus.where((m) {
+      if (_category != null && _category != 'Semua') {
+        if (m.categoryTag.toLowerCase() != _category!.toLowerCase()) {
+          return false;
+        }
+      }
+      if (query.isNotEmpty) {
+        return m.name.toLowerCase().contains(query) ||
+            m.restaurantName.toLowerCase().contains(query);
+      }
+      return _category != null && _category != 'Semua';
+    }).toList();
+
+    final subtitleFilterText = _category != null && _category != 'Semua'
         ? 'Kategori : $_category'
         : (!_filter.isEmpty
             ? 'Filter: ${_filter.summaryLabel}'
-            : 'Filter: 1-2 km, Rp25.000-100.000');
+            : 'Filter: Semua Restoran & Kuliner');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -110,15 +149,45 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
                     controller: _searchController,
                     autofocus: widget.initialCategory == null &&
                         widget.initialFilter.isEmpty,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (val) {
+                      setState(() {});
+                      if (val.trim().length >= 3) {
+                        state.loadOpenApiDishes(query: val.trim());
+                      }
+                    },
                     onFilterTap: _openFilterModal,
                   ),
                 ],
               ),
             ),
 
+            // Pilihan Cepat Kategori
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                itemCount: _allCategories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final cat = _allCategories[index];
+                  final isSelected = (_category ?? 'Semua') == cat;
+                  return FoodViewFilterChip(
+                    label: cat,
+                    selected: isSelected,
+                    onTap: () {
+                      setState(() {
+                        _category = cat == 'Semua' ? null : cat;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: Text(
                 subtitleFilterText,
                 style: const TextStyle(
@@ -129,28 +198,69 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
             ),
 
             Expanded(
-              child: ListView.builder(
+              child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: results.length,
-                itemBuilder: (context, index) {
-                  final r = results[index];
-                  return FoodViewRestaurantCard(
-                    name: r.name,
-                    category: r.category,
-                    address: r.address,
-                    imageAsset: r.imageAsset,
-                    reviewerCount: r.reviewerCount,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => UserRestaurantDetailScreen(
-                            restaurant: state.restaurants.first,
+                children: [
+                  if (results.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'Tidak ada restoran yang cocok dengan filter ini.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textGray,
                           ),
                         ),
-                      );
-                    },
-                  );
-                },
+                      ),
+                    ),
+                  for (final r in results)
+                    FoodViewRestaurantCard(
+                      name: r.name,
+                      category: r.category,
+                      address: r.address,
+                      imageAsset: r.imageAsset,
+                      reviewerCount: r.reviewerCount,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => UserRestaurantDetailScreen(
+                              restaurant: r,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (matchingMenus.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Menu Sesuai Kategori / Pencarian',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final m in matchingMenus)
+                      FoodViewFavoriteMenuDetailCard(
+                        restaurantName: m.restaurantName,
+                        restaurantCategory: m.restaurantCategory,
+                        menuName: m.name,
+                        description: m.description,
+                        price: m.price,
+                        imageAsset: m.imageAsset,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => UserMenuDetailScreen(menu: m),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
           ],

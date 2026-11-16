@@ -81,6 +81,10 @@ class _UserChatListScreenState extends State<UserChatListScreen> {
             itemCount: chats.length,
             itemBuilder: (context, index) {
               final thread = chats[index];
+              final targetRestaurant = state.restaurants.firstWhere(
+                (r) => r.id == thread.restaurantId,
+                orElse: () => state.restaurants.first,
+              );
               return FoodViewChatListTile(
                 name: thread.name,
                 lastMessage: thread.lastMessage,
@@ -90,7 +94,10 @@ class _UserChatListScreenState extends State<UserChatListScreen> {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => UserChatDetailScreen(thread: thread),
+                      builder: (_) => UserChatDetailScreen(
+                        thread: thread,
+                        associatedRestaurant: targetRestaurant,
+                      ),
                     ),
                   );
                 },
@@ -103,17 +110,15 @@ class _UserChatListScreenState extends State<UserChatListScreen> {
   }
 }
 
-/// Layar Detail Percakapan `Warung Bu Atik` pada Role USER sesuai `USER.svg`:
-/// - Header putih dengan tombol kembali, logo `Warung Bu Atik`, status `Online`, dan ikon toko di kanan
-/// - Tanggal `"Sen, 27 Mei"`
-/// - Bubble pesan pelanggan berwarna hijau muda `#E1EEDD` & bubble balasan putih
-/// - Input bar bawah dengan ikon kamera, kolom pesan, dan tombol kirim oranye
+/// Layar Detail Percakapan Restoran pada Role USER sesuai `USER.svg`.
 class UserChatDetailScreen extends StatefulWidget {
   final ChatThreadModel thread;
+  final RestaurantModel? associatedRestaurant;
 
   const UserChatDetailScreen({
     super.key,
     required this.thread,
+    this.associatedRestaurant,
   });
 
   @override
@@ -143,6 +148,11 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<FoodViewUiState>();
+    final restaurant = widget.associatedRestaurant ??
+        state.restaurants.firstWhere(
+          (r) => r.id == widget.thread.restaurantId,
+          orElse: () => state.restaurants.first,
+        );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F6),
@@ -195,7 +205,7 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => UserRestaurantDetailScreen(
-                            restaurant: state.restaurants.first,
+                            restaurant: restaurant,
                           ),
                         ),
                       );

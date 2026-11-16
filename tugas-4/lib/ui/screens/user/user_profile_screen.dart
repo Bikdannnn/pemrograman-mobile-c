@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/services/firebase_hybrid_service.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
+import '../owner/owner_auth_screen.dart';
 import 'user_auth_screen.dart';
 import 'user_menu_detail_screen.dart';
 import 'user_restaurant_detail_screen.dart';
@@ -11,9 +13,9 @@ import 'user_restaurant_detail_screen.dart';
 /// - Jika belum login (Guest): Menampilkan ikon placeholder abu-abu, `"Masuk ke Akun Anda"`, dan tombol oranye `"Masuk"`.
 /// - Jika sudah login (`Gibran Nur Saleh`): Menampilkan avatar bulat, `"@gibnurshl ✏️"`, `"Telah Mereview Sebanyak 100 Rumah Makan"`,
 ///   dan 3 menu navigasi:
-///   1. `Favoritku` -> membuka `UserFavoritkuScreen` (tab `Menu` & `Restoran`)
-///   2. `Riwayat Review` -> membuka `UserRiwayatReviewScreen` + `UserRiwayatDetailScreen`
-///   3. `Pengaturan` -> membuka `FoodViewSettingsScreen` (`Privasi Akun`, `Bahasa`, `Tema`, `Aksesibilitas`, `Ganti Akun`, `Keluar`)
+///   1. `Favoritku` -> membuka `UserFavoritkuScreen` (setiap menu/restoran membuka detail spesifik masing-masing!)
+///   2. `Riwayat Review` -> membuka `UserRiwayatReviewScreen` (setiap restoran membuka detail riwayat spesifik masing-masing!)
+///   3. `Pengaturan` -> membuka `FoodViewSettingsScreen`
 class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
 
@@ -207,7 +209,8 @@ class _ProfileMenuRow extends StatelessWidget {
   }
 }
 
-/// Layar `Favoritku` dengan Tab `Menu` & `Restoran` sesuai `USER.svg`.
+/// Layar `Favoritku` dengan Tab `Menu` & `Restoran` sesuai `USER.svg`:
+/// Mengetuk menu atau restoran favorit mana pun akan membuka halaman detail item yang dipilih!
 class UserFavoritkuScreen extends StatefulWidget {
   const UserFavoritkuScreen({super.key});
 
@@ -230,10 +233,7 @@ class _UserFavoritkuScreenState extends State<UserFavoritkuScreen> {
     final state = context.watch<FoodViewUiState>();
     final query = _searchController.text.trim().toLowerCase();
 
-    final favMenus = [
-      ...state.menus.where((m) => m.isFavorite),
-      ...state.extraFavoriteMenus,
-    ].where((m) {
+    final favMenus = state.menus.where((m) => m.isFavorite).where((m) {
       if (query.isEmpty) return true;
       return m.name.toLowerCase().contains(query) ||
           m.restaurantName.toLowerCase().contains(query);
@@ -352,9 +352,7 @@ class _UserFavoritkuScreenState extends State<UserFavoritkuScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => UserMenuDetailScreen(
-                                  menu: state.menus.first,
-                                ),
+                                builder: (_) => UserMenuDetailScreen(menu: m),
                               ),
                             );
                           },
@@ -393,8 +391,7 @@ class _UserFavoritkuScreenState extends State<UserFavoritkuScreen> {
 }
 
 /// Layar `Riwayat Review` sesuai `USER.svg`:
-/// Menampilkan bagian `"Hari Ini"` (`Warung Pak Joko`) & `"Kemarin"` (`Rumah Makan Mba Atun`, `Fireflies`)
-/// dengan tombol oranye `"Lihat"` yang membuka `UserRiwayatDetailScreen`.
+/// Mengetuk tombol `"Lihat"` pada restoran mana pun akan membuka detail riwayat review restoran tersebut!
 class UserRiwayatReviewScreen extends StatefulWidget {
   const UserRiwayatReviewScreen({super.key});
 
@@ -414,6 +411,18 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<FoodViewUiState>();
+    final query = _searchController.text.trim().toLowerCase();
+
+    final warungBuAtik = state.restaurants.firstWhere((r) => r.id == 'r_buatik');
+    final mbaAtun = state.restaurants.firstWhere((r) => r.id == 'r_mba_atun');
+    final fireflies = state.restaurants.firstWhere((r) => r.id == 'r_fireflies');
+
+    bool matches(RestaurantModel r) =>
+        query.isEmpty ||
+        r.name.toLowerCase().contains(query) ||
+        r.category.toLowerCase().contains(query);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -441,6 +450,7 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
                     controller: _searchController,
                     hintText: 'Cari...',
                     showFilterIcon: false,
+                    onChanged: (_) => setState(() {}),
                   ),
                 ],
               ),
@@ -458,38 +468,46 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Hari Ini',
-                    style: TextStyle(fontSize: 10.5, color: AppColors.textGray),
-                  ),
-                  const SizedBox(height: 8),
-                  FoodViewRiwayatRestaurantCard(
-                    name: 'Warung Pak Joko',
-                    category: 'Rumah makan',
-                    address: 'Jl. Samata, Borong Indah',
-                    imageAsset: 'assets/images/u_us_5.png',
-                    onViewTap: () => _openDetail(context),
-                  ),
+                  if (matches(warungBuAtik)) ...[
+                    const Text(
+                      'Hari Ini',
+                      style:
+                          TextStyle(fontSize: 10.5, color: AppColors.textGray),
+                    ),
+                    const SizedBox(height: 8),
+                    FoodViewRiwayatRestaurantCard(
+                      name: warungBuAtik.name,
+                      category: warungBuAtik.category,
+                      address: warungBuAtik.address,
+                      imageAsset: warungBuAtik.imageAsset,
+                      onViewTap: () => _openDetail(context, warungBuAtik),
+                    ),
+                  ],
                   const SizedBox(height: 6),
-                  const Text(
-                    'Kemarin',
-                    style: TextStyle(fontSize: 10.5, color: AppColors.textGray),
-                  ),
-                  const SizedBox(height: 8),
-                  FoodViewRiwayatRestaurantCard(
-                    name: 'Rumah Makan Mba Atun',
-                    category: 'Seafood',
-                    address: 'Jl. Toddopuli Raya No 12',
-                    imageAsset: 'assets/images/u_us_1.png',
-                    onViewTap: () => _openDetail(context),
-                  ),
-                  FoodViewRiwayatRestaurantCard(
-                    name: 'Fireflies',
-                    category: 'Cepat Saji',
-                    address: 'Jl. Tanjung Bayang',
-                    imageAsset: 'assets/images/u_us_0.png',
-                    onViewTap: () => _openDetail(context),
-                  ),
+                  if (matches(mbaAtun) || matches(fireflies)) ...[
+                    const Text(
+                      'Kemarin',
+                      style:
+                          TextStyle(fontSize: 10.5, color: AppColors.textGray),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (matches(mbaAtun))
+                    FoodViewRiwayatRestaurantCard(
+                      name: mbaAtun.name,
+                      category: mbaAtun.category,
+                      address: mbaAtun.address,
+                      imageAsset: mbaAtun.imageAsset,
+                      onViewTap: () => _openDetail(context, mbaAtun),
+                    ),
+                  if (matches(fireflies))
+                    FoodViewRiwayatRestaurantCard(
+                      name: fireflies.name,
+                      category: fireflies.category,
+                      address: fireflies.address,
+                      imageAsset: fireflies.imageAsset,
+                      onViewTap: () => _openDetail(context, fireflies),
+                    ),
                 ],
               ),
             ),
@@ -499,17 +517,24 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
     );
   }
 
-  void _openDetail(BuildContext context) {
+  void _openDetail(BuildContext context, RestaurantModel restaurant) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const UserRiwayatDetailScreen()),
+      MaterialPageRoute(
+        builder: (_) => UserRiwayatDetailScreen(restaurant: restaurant),
+      ),
     );
   }
 }
 
-/// Layar Detail Riwayat Review (frame paling kanan bawah di `USER.svg`):
-/// Menampilkan foto restoran, info `Warung Bu Atik`, 5 bintang `Penilaian`, dan kotak `Ulasan`.
+/// Layar Detail Riwayat Review Dinamis sesuai restoran yang dipilih:
+/// Menampilkan foto restoran, info alamat/jam/telepon, 5 bintang `Penilaian`, dan `Ulasan` spesifik restoran tersebut.
 class UserRiwayatDetailScreen extends StatelessWidget {
-  const UserRiwayatDetailScreen({super.key});
+  final RestaurantModel restaurant;
+
+  const UserRiwayatDetailScreen({
+    super.key,
+    required this.restaurant,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -543,71 +568,73 @@ class UserRiwayatDetailScreen extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.asset(
-                        'assets/images/u_us_5.png',
+                        restaurant.imageAsset,
                         width: double.infinity,
                         height: 195,
                         fit: BoxFit.cover,
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Warung Bu Atik',
-                      style: TextStyle(
+                    Text(
+                      restaurant.name,
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textDark,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Ayam dan bebek, Aneka Nasi, Cepat Saji',
-                      style: TextStyle(
+                    Text(
+                      restaurant.category,
+                      style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textGray,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.location_on_rounded,
                           size: 13,
                           color: AppColors.primaryGreen,
                         ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Jl. Samata, Borong Indah, Makassar',
-                          style: TextStyle(fontSize: 11),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            restaurant.address,
+                            style: const TextStyle(fontSize: 11),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.access_time_filled_rounded,
                           size: 13,
                           color: AppColors.primaryGreen,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          '08.00 - 22.30 WITA',
-                          style: TextStyle(fontSize: 11),
+                          restaurant.hours,
+                          style: const TextStyle(fontSize: 11),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.phone_rounded,
                           size: 13,
                           color: AppColors.primaryGreen,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          '081231492034',
-                          style: TextStyle(fontSize: 11),
+                          restaurant.phone,
+                          style: const TextStyle(fontSize: 11),
                         ),
                       ],
                     ),
@@ -642,9 +669,9 @@ class UserRiwayatDetailScreen extends StatelessWidget {
                         color: const Color(0xFFEBEBEB),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
-                        'Tempat makan paling nyaman, semua pelayan ramah dan makanannya enak-enak',
-                        style: TextStyle(
+                      child: Text(
+                        restaurant.userHistoryComment,
+                        style: const TextStyle(
                           fontSize: 11.5,
                           color: AppColors.textGray,
                           height: 1.4,
@@ -662,8 +689,7 @@ class UserRiwayatDetailScreen extends StatelessWidget {
   }
 }
 
-/// Layar `Pengaturan` bersama untuk Role USER maupun PEMILIK RESTORAN sesuai `USER.svg` & `PEMILIK RESTORAN.svg`:
-/// Menampilkan `Privasi Akun`, `Bahasa`, `Tema`, `Aksesibilitas`, `Ganti Akun` (berpindah Role!), dan `Keluar`.
+/// Layar `Pengaturan` bersama untuk Role USER maupun PEMILIK RESTORAN sesuai `USER.svg` & `PEMILIK RESTORAN.svg`.
 class FoodViewSettingsScreen extends StatelessWidget {
   final bool isOwner;
 
@@ -692,26 +718,50 @@ class FoodViewSettingsScreen extends StatelessWidget {
           _SettingTile(
             icon: Icons.lock_rounded,
             label: 'Privasi Akun',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => isOwner
+                      ? const OwnerAuthScreen()
+                      : const UserAuthScreen(),
+                ),
+              );
+            },
           ),
           _SettingTile(
             icon: Icons.language_rounded,
             label: 'Bahasa',
-            onTap: () {},
+            onTap: () {
+              FoodViewDialogs.showStatusPopup(
+                context,
+                message: 'Bahasa Indonesia (Aktif)',
+              );
+            },
           ),
           _SettingTile(
             icon: Icons.palette_outlined,
-            label: 'Tema',
-            onTap: () {},
+            label: 'Tema Tampilan',
+            onTap: () {
+              FoodViewDialogs.showStatusPopup(
+                context,
+                message: 'Tema FoodView Hijau & Oranye Aktif',
+              );
+            },
           ),
           _SettingTile(
-            icon: Icons.accessibility_new_rounded,
-            label: 'Aksesibilitas',
-            onTap: () {},
+            icon: Icons.notifications_active_outlined,
+            label: 'Tes Push Notification',
+            onTap: () {
+              FirebaseHybridService.instance.triggerPushNotification(
+                title: 'FoodView Promo & Update',
+                body:
+                    'Warung Bu Atik & Black Canyon punya menu spesial hari ini!',
+              );
+            },
           ),
           _SettingTile(
             icon: Icons.swap_horiz_rounded,
-            label: 'Ganti Akun (${isOwner ? "Ke Mode User" : "Ke Mode Pemilik Restoran"})',
+            label: 'Ganti Akun',
             onTap: () {
               state.setRole(
                 isOwner ? AppActiveRole.user : AppActiveRole.pemilikRestoran,

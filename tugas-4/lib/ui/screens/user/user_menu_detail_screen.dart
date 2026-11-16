@@ -5,13 +5,13 @@ import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
 import 'user_auth_screen.dart';
 import 'user_chat_screen.dart';
+import 'user_restaurant_detail_screen.dart';
 
-/// Layar Detail Menu (`Ayam Goreng Rica`) sesuai `USER.svg` (kolom paling kanan):
-/// - Baris atas: Tombol kembali di kiri, tombol bulat Chat & Favorit di kanan
-/// - Foto besar hidangan di atas
-/// - Harga (`Rp25.000`), Judul (`Ayam Goreng Rica`), Deskripsi
+/// Layar Detail Menu Dinamis sesuai `USER.svg`:
+/// - Menampilkan foto hidangan (baik dari asset lokal maupun dari Open-Source API `networkImageUrl`)
+/// - Menampilkan nama restoran asal (bisa diketuk untuk melihat halaman restoran tersebut), kalori, bahan/ingredients, harga, dan deskripsi
 /// - Bagian `Beri Penilaian` (5 bintang interaktif) & `Beri Ulasan` + tombol `Kirim`
-/// - Daftar ulasan pelanggan untuk menu tersebut
+/// - Daftar ulasan pelanggan spesifik untuk hidangan tersebut
 class UserMenuDetailScreen extends StatefulWidget {
   final MenuModel menu;
 
@@ -70,6 +70,10 @@ class _UserMenuDetailScreenState extends State<UserMenuDetailScreen> {
       (m) => m.id == widget.menu.id,
       orElse: () => widget.menu,
     );
+    final parentRestaurant = state.restaurants.firstWhere(
+      (r) => r.id == currentMenu.restaurantId,
+      orElse: () => state.restaurants.first,
+    );
     final isReadyToSend = _reviewController.text.trim().isNotEmpty;
 
     return Scaffold(
@@ -99,10 +103,14 @@ class _UserMenuDetailScreenState extends State<UserMenuDetailScreen> {
                         onTap: () async {
                           if (!await _ensureLoggedIn(state)) return;
                           if (!context.mounted) return;
+                          final thread = state.getChatThreadForRestaurant(
+                            parentRestaurant,
+                          );
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => UserChatDetailScreen(
-                                thread: state.userChats.first,
+                                thread: thread,
+                                associatedRestaurant: parentRestaurant,
                               ),
                             ),
                           );
@@ -123,32 +131,80 @@ class _UserMenuDetailScreenState extends State<UserMenuDetailScreen> {
 
               const SizedBox(height: 10),
 
-              // Foto Hidangan Besar
+              // Foto Hidangan Besar (mendukung foto Open API maupun foto lokal Figma)
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  currentMenu.imageAsset,
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
-                ),
+                child: currentMenu.networkImageUrl != null
+                    ? Image.network(
+                        currentMenu.networkImageUrl!,
+                        width: double.infinity,
+                        height: 205,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          currentMenu.imageAsset,
+                          width: double.infinity,
+                          height: 205,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Image.asset(
+                        currentMenu.imageAsset,
+                        width: double.infinity,
+                        height: 205,
+                        fit: BoxFit.cover,
+                      ),
               ),
 
               const SizedBox(height: 12),
 
-              Text(
-                currentMenu.price,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    currentMenu.price,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryOrange,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => UserRestaurantDetailScreen(
+                            restaurant: parentRestaurant,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.storefront_rounded,
+                          size: 13,
+                          color: AppColors.primaryGreen,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          currentMenu.restaurantName,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryGreen,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 currentMenu.name,
                 style: const TextStyle(
-                  fontSize: 14.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textDark,
                 ),
@@ -159,9 +215,55 @@ class _UserMenuDetailScreenState extends State<UserMenuDetailScreen> {
                 style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.textGray,
-                  height: 1.38,
+                  height: 1.4,
                 ),
               ),
+
+              if (currentMenu.ingredients.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.lightGreenPill,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '🔥 ${currentMenu.calories} kkal',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryGreen,
+                        ),
+                      ),
+                    ),
+                    for (final ing in currentMenu.ingredients)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.chipGray,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          ing,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 16),
 

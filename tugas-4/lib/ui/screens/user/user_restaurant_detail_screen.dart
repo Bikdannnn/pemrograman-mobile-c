@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/advanced_dart/api_state.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
@@ -7,15 +8,10 @@ import 'user_auth_screen.dart';
 import 'user_chat_screen.dart';
 import 'user_menu_detail_screen.dart';
 
-/// Layar Detail Restoran (`Warung Bu Atik`) sesuai `USER.svg`:
-/// - Peta `CLARO HOTEL MAKASSAR` di atas (ketuk untuk menampilkan overlay `Lihat di Maps`)
-/// - Baris tombol kembali di kiri + tombol bulat Chat & Favorit di kanan
-/// - Info restoran: Nama, kategori, alamat, jam buka (`08.00 - 22.30 WITA`), telepon (`081231492034`)
-/// - Galeri foto restoran & makanan
-/// - 3 Pill Tab (`Menu`, `Tentang`, `Ulasan`) dengan warna aktif `#E1EEDD`:
-///   - `Menu`: Search bar `"Cari menu..."` + Grid 2 kolom 10 menu
-///   - `Tentang`: Paragraf profil lengkap Warung Bu Atik
-///   - `Ulasan`: `"Beri Penilaian"` (5 bintang interaktif), `"Beri Ulasan"` (kotak teks + validasi `*wajib diisi` + tombol `"Kirim"`), dan daftar `"4 Komentar"`
+/// Layar Detail Restoran Dinamis sesuai `USER.svg`:
+/// - Menampilkan Peta OpenStreetMap Live sesuai koordinat asli restoran yang dipilih (`latitude`, `longitude`)
+/// - Menampilkan Menu spesifik milik restoran yang dipilih (`state.getMenusForRestaurant(restaurant)`)
+/// - Menampilkan Tentang & Ulasan spesifik restoran tersebut beserta rangkuman Record `calculateRatingSummary`
 class UserRestaurantDetailScreen extends StatefulWidget {
   final RestaurantModel restaurant;
 
@@ -55,7 +51,10 @@ class _UserRestaurantDetailScreenState
     return false;
   }
 
-  Future<void> _submitReview(FoodViewUiState state) async {
+  Future<void> _submitReview(
+    FoodViewUiState state,
+    RestaurantModel restaurant,
+  ) async {
     if (!await _ensureLoggedIn(state)) return;
 
     final comment = _reviewController.text.trim();
@@ -65,7 +64,7 @@ class _UserRestaurantDetailScreenState
     }
 
     setState(() => _showReviewValidationError = false);
-    state.addRestaurantReview(widget.restaurant.id, _selectedStars, comment);
+    state.addRestaurantReview(restaurant.id, _selectedStars, comment);
     _reviewController.clear();
     setState(() => _selectedStars = 0);
 
@@ -85,14 +84,13 @@ class _UserRestaurantDetailScreenState
       orElse: () => widget.restaurant,
     );
 
+    final restaurantMenus = state.getMenusForRestaurant(restaurant);
     final menuQuery = _menuSearchController.text.trim().toLowerCase();
-    final filteredMenus = state.menus.where((m) {
+    final filteredMenus = restaurantMenus.where((m) {
       if (menuQuery.isEmpty) return true;
-      return m.name.toLowerCase().contains(menuQuery);
+      return m.name.toLowerCase().contains(menuQuery) ||
+          m.description.toLowerCase().contains(menuQuery);
     }).toList();
-
-    final hasReviewInput =
-        _reviewController.text.trim().isNotEmpty && _selectedStars > 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -101,8 +99,14 @@ class _UserRestaurantDetailScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Peta di bagian atas (persis USER.svg)
-              const FoodViewMapCard(height: 190),
+              // Peta Lokasi Spesifik Restoran (OpenStreetMap Live + Peta Statis Figma)
+              FoodViewMapCard(
+                restaurantName: restaurant.name,
+                address: restaurant.address,
+                latitude: restaurant.latitude,
+                longitude: restaurant.longitude,
+                height: 195,
+              ),
 
               // Baris Aksi (Back, Chat, Favorite)
               Padding(
@@ -125,10 +129,13 @@ class _UserRestaurantDetailScreenState
                           onTap: () async {
                             if (!await _ensureLoggedIn(state)) return;
                             if (!context.mounted) return;
+                            final chatThread =
+                                state.getChatThreadForRestaurant(restaurant);
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => UserChatDetailScreen(
-                                  thread: state.userChats.first,
+                                  thread: chatThread,
+                                  associatedRestaurant: restaurant,
                                 ),
                               ),
                             );
@@ -157,7 +164,7 @@ class _UserRestaurantDetailScreenState
                     Text(
                       restaurant.name,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textDark,
                       ),
@@ -182,7 +189,7 @@ class _UserRestaurantDetailScreenState
 
               const SizedBox(height: 12),
 
-              // Galeri Foto Horizontal
+              // Galeri Foto Horizontal Spesifik Restoran
               SizedBox(
                 height: 145,
                 child: ListView.separated(
@@ -212,7 +219,7 @@ class _UserRestaurantDetailScreenState
                 child: Row(
                   children: [
                     _PillTabButton(
-                      label: 'Menu',
+                      label: 'Menu (${restaurantMenus.length})',
                       selected: _selectedTab == 0,
                       onTap: () => setState(() => _selectedTab = 0),
                     ),
@@ -224,7 +231,7 @@ class _UserRestaurantDetailScreenState
                     ),
                     const SizedBox(width: 8),
                     _PillTabButton(
-                      label: 'Ulasan',
+                      label: 'Ulasan (${restaurant.reviews.length})',
                       selected: _selectedTab == 2,
                       onTap: () => setState(() => _selectedTab = 2),
                     ),
@@ -240,7 +247,7 @@ class _UserRestaurantDetailScreenState
                 child: switch (_selectedTab) {
                   0 => _buildMenuTab(filteredMenus),
                   1 => _buildTentangTab(restaurant),
-                  _ => _buildUlasanTab(state, restaurant, hasReviewInput),
+                  _ => _buildUlasanTab(state, restaurant),
                 },
               ),
 
@@ -276,7 +283,7 @@ class _UserRestaurantDetailScreenState
       children: [
         FoodViewSearchBar(
           controller: _menuSearchController,
-          hintText: 'Cari menu...',
+          hintText: 'Cari menu di ${widget.restaurant.name}...',
           showFilterIcon: false,
           onChanged: (_) => setState(() {}),
         ),
@@ -314,14 +321,42 @@ class _UserRestaurantDetailScreenState
   Widget _buildTentangTab(RestaurantModel restaurant) {
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 20),
-      child: Text(
-        restaurant.description,
-        textAlign: TextAlign.justify,
-        style: const TextStyle(
-          fontSize: 11.5,
-          color: AppColors.textDark,
-          height: 1.48,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            restaurant.description,
+            textAlign: TextAlign.justify,
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppColors.textDark,
+              height: 1.48,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FoodViewFilterChip(
+                label: 'Jarak: ${restaurant.distanceTag}',
+                selected: true,
+                onTap: () {},
+              ),
+              FoodViewFilterChip(
+                label: 'Kisaran: ${restaurant.priceTag}',
+                selected: false,
+                onTap: () {},
+              ),
+              if (restaurant.is24Hours)
+                FoodViewFilterChip(
+                  label: 'Buka 24 Jam',
+                  selected: true,
+                  onTap: () {},
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -329,18 +364,34 @@ class _UserRestaurantDetailScreenState
   Widget _buildUlasanTab(
     FoodViewUiState state,
     RestaurantModel restaurant,
-    bool hasReviewInput,
   ) {
+    // Advance Dart: Destructuring Record `RatingSummaryRecord`
+    final (:average, :totalCount, starCounts: _) = calculateRatingSummary(
+      restaurant.reviews.map((e) => e.rating),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Beri Penilaian',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textDark,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Beri Penilaian',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+              ),
+            ),
+            Text(
+              'Rata-rata ⭐ ${average.toStringAsFixed(1)} ($totalCount ulasan)',
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: AppColors.textGray,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         FoodViewInteractiveStars(
@@ -398,7 +449,7 @@ class _UserRestaurantDetailScreenState
           text: 'Kirim',
           enabled: true,
           height: 38,
-          onPressed: () => _submitReview(state),
+          onPressed: () => _submitReview(state, restaurant),
         ),
         const SizedBox(height: 18),
         Text(
@@ -438,7 +489,7 @@ class _PillTabButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? AppColors.lightGreenPill : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -446,7 +497,7 @@ class _PillTabButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11.5,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             color: AppColors.textDark,
           ),
