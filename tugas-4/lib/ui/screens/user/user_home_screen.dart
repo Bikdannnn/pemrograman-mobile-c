@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/services/location_service.dart';
 import '../../../data/services/open_culinary_api_service.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';

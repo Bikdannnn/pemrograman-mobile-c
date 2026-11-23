@@ -20,6 +20,6 @@ void main() {
 
     expect(find.text('Selamat Datang!'), findsOneWidget);
     expect(find.text('Kategori'), findsOneWidget);
-    expect(find.text('Top of the Week'), findsOneWidget);
+    expect(find.text('Rekomendasi'), findsOneWidget);
   });
 }
