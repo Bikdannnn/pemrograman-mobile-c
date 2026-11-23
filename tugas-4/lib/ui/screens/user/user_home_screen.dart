@@ -8,15 +8,15 @@ import 'user_menu_detail_screen.dart';
 import 'user_restaurant_detail_screen.dart';
 import 'user_search_screen.dart';
 
-/// Layar Beranda USER sesuai `USER.svg`:
-/// - Header Hijau Tua (`#183A1D`) bersih: `"Selamat Datang!"`, `"Tentukan restoran terbaik-mu dengan FoodView"`, Search Bar + Filter
-/// - Carousel Banner 3 Slide dengan tombol panah kiri/kanan
-/// - Kategori (5 ikon di atas kotak krem `#FEFBE9`: `Nasi`, `Minuman`, `Seafood`, `Ayam`, `Mie`)
+/// Layar Beranda USER:
+/// - Header Hijau Tua (`#183A1D`) bersih: `"Selamat Datang!"`, Search Bar + Filter
+/// - Carousel Banner 3 Slide
+/// - Kategori (5 ikon)
 /// - Banner Info Cuaca Kuliner Makassar real-time (`Open-Meteo REST API`)
-/// - Kartu `Top of the Week` (`Black Canyon - Pastrami Pizza Rp75.000`)
-/// - Bagian `Favoritku` (setiap kartu membuka detail menu spesifik masing-masing!)
-/// - Bagian `Inspirasi Kuliner Open API` (`DummyJSON Recipes` & `TheMealDB Open API`)
-/// - Bagian `Rekomendasi` (setiap restoran membuka detail restoran spesifik masing-masing!)
+/// - Top of the Week (restoran pertama / terpopuler)
+/// - Favoritku (menu favorit dinamis dari API)
+/// - Inspirasi Kuliner Open API (`DummyJSON Recipes` & `TheMealDB Open API`)
+/// - Rekomendasi (restoran terdekat berdasarkan GPS)
 class UserHomeScreen extends StatefulWidget {
   final VoidCallback onOpenFavoritku;
 
@@ -94,13 +94,15 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<FoodViewUiState>();
     final rekomendasiList = state.restaurants.take(6).toList();
-    final favoritHomeMenus = [
-      state.menus.firstWhere((m) => m.id == 'm1'), // Ayam Goreng Rica
-      state.menus.firstWhere((m) => m.id == 'm3'), // Bakso Goreng
-      state.menus.firstWhere((m) => m.id == 'm_mie_ayam_ais'), // Mie Ayam Pak Ais
-      state.menus.firstWhere((m) => m.id == 'm_bc_pizza'), // Pastrami Pizza
-      state.menus.firstWhere((m) => m.id == 'm_bc_pancake'), // Banana Pancake
-    ];
+    // Menu favorit dinamis dari API (menggantikan hardcoded IDs)
+    final favoritHomeMenus = state.menus
+        .where((m) => m.isFavorite)
+        .take(5)
+        .toList();
+    // Jika belum ada favorit, tampilkan 5 menu pertama
+    final displayFavoritMenus = favoritHomeMenus.isNotEmpty
+        ? favoritHomeMenus
+        : state.menus.take(5).toList();
 
     return RefreshIndicator(
       color: AppColors.primaryOrange,
@@ -151,6 +153,27 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                       ],
                     ),
                   ),
+                  // Info lokasi pengguna
+                  if (state.userLatitude != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          size: 11,
+                          color: AppColors.primaryOrange,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Lokasi: ${state.userLatitude!.toStringAsFixed(4)}, ${state.userLongitude!.toStringAsFixed(4)}',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   FoodViewSearchBar(
                     readOnly: true,
@@ -163,73 +186,76 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
             const SizedBox(height: 14),
 
-            // Banner Carousel dengan Tombol Chevron Kiri/Kanan (persis USER.svg)
-            SizedBox(
-              height: 158,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  PageView.builder(
-                    controller: _bannerController,
-                    itemCount: state.homeBannerAssets.length,
-                    onPageChanged: (idx) =>
-                        setState(() => _currentBanner = idx),
-                    itemBuilder: (context, index) {
-                      final targetRestaurant =
-                          state.restaurants[index % state.restaurants.length];
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => UserRestaurantDetailScreen(
-                                restaurant: targetRestaurant,
+            // Banner Carousel
+            if (state.restaurants.isNotEmpty)
+              SizedBox(
+                height: 158,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PageView.builder(
+                      controller: _bannerController,
+                      itemCount: state.homeBannerAssets.length,
+                      onPageChanged: (idx) =>
+                          setState(() => _currentBanner = idx),
+                      itemBuilder: (context, index) {
+                        final targetRestaurant =
+                            state.restaurants[index % state.restaurants.length];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => UserRestaurantDetailScreen(
+                                  restaurant: targetRestaurant,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.asset(
+                                state.homeBannerAssets[index],
+                                width: double.infinity,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(
-                              state.homeBannerAssets[index],
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
                           ),
+                        );
+                      },
+                    ),
+                    if (_currentBanner > 0)
+                      Positioned(
+                        left: 26,
+                        child: _BannerArrowButton(
+                          icon: Icons.chevron_left_rounded,
+                          onTap: () {
+                            _bannerController.previousPage(
+                              duration: const Duration(milliseconds: 280),
+                              curve: Curves.easeOut,
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                  if (_currentBanner > 0)
-                    Positioned(
-                      left: 26,
-                      child: _BannerArrowButton(
-                        icon: Icons.chevron_left_rounded,
-                        onTap: () {
-                          _bannerController.previousPage(
-                            duration: const Duration(milliseconds: 280),
-                            curve: Curves.easeOut,
-                          );
-                        },
                       ),
-                    ),
-                  if (_currentBanner < state.homeBannerAssets.length - 1)
-                    Positioned(
-                      right: 26,
-                      child: _BannerArrowButton(
-                        icon: Icons.chevron_right_rounded,
-                        onTap: () {
-                          _bannerController.nextPage(
-                            duration: const Duration(milliseconds: 280),
-                            curve: Curves.easeOut,
-                          );
-                        },
+                    if (_currentBanner < state.homeBannerAssets.length - 1)
+                      Positioned(
+                        right: 26,
+                        child: _BannerArrowButton(
+                          icon: Icons.chevron_right_rounded,
+                          onTap: () {
+                            _bannerController.nextPage(
+                              duration: const Duration(milliseconds: 280),
+                              curve: Curves.easeOut,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox(height: 158),
 
             const SizedBox(height: 16),
 
@@ -345,75 +371,77 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
             const SizedBox(height: 16),
 
-            // Top of the Week (Black Canyon)
-            FoodViewTopOfTheWeekCard(
-              onTap: () {
-                final bc = state.restaurants.firstWhere(
-                  (r) => r.id == 'r_black_canyon',
-                );
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => UserRestaurantDetailScreen(restaurant: bc),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Favoritku (Setiap kartu membuka menu spesifik yang diklik!)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Favoritku',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: widget.onOpenFavoritku,
-                    child: const Text(
-                      'Lihat Lainnya',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: AppColors.textGray,
+            // Top of the Week (restoran pertama yang tersedia)
+            if (state.restaurants.isNotEmpty)
+              FoodViewTopOfTheWeekCard(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => UserRestaurantDetailScreen(
+                        restaurant: state.restaurants.first,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 188,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: favoritHomeMenus.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (context, index) {
-                  final menu = favoritHomeMenus[index];
-                  return FoodViewFavoritkuMenuCard(
-                    menuName: menu.name,
-                    storeName: menu.restaurantName,
-                    address: menu.restaurantAddress,
-                    imageAsset: menu.imageAsset,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => UserMenuDetailScreen(menu: menu),
-                        ),
-                      );
-                    },
                   );
                 },
               ),
-            ),
+
+            const SizedBox(height: 16),
+
+            // Favoritku (menu dinamis dari API)
+            if (displayFavoritMenus.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Favoritku',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onOpenFavoritku,
+                      child: const Text(
+                        'Lihat Lainnya',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.textGray,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 188,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: displayFavoritMenus.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  itemBuilder: (context, index) {
+                    final menu = displayFavoritMenus[index];
+                    return FoodViewFavoritkuMenuCard(
+                      menuName: menu.name,
+                      storeName: menu.restaurantName,
+                      address: menu.restaurantAddress,
+                      imageAsset: menu.imageAsset,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => UserMenuDetailScreen(menu: menu),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
 
             const SizedBox(height: 18),
 
@@ -495,49 +523,106 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
             const SizedBox(height: 18),
 
-            // Rekomendasi (Setiap restoran yang diklik membuka halaman detail restoran itu sendiri!)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Rekomendasi',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
+            // Rekomendasi (restoran terdekat berdasarkan GPS)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
+              child: Row(
                 children: [
-                  for (final r in rekomendasiList)
-                    FoodViewRestaurantCard(
-                      name: r.name,
-                      category: r.category,
-                      address: r.address,
-                      imageAsset: r.imageAsset,
-                      reviewerCount: r.reviewerCount,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => UserRestaurantDetailScreen(
-                              restaurant: r,
+                  const Text(
+                    'Rekomendasi',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  if (state.userLatitude != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.lightGreenPill,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.near_me_rounded,
+                            size: 10,
+                            color: AppColors.primaryGreen,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            'Terdekat',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryGreen,
                             ),
                           ),
-                        );
-                      },
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 8),
-                  FoodViewPrimaryButton(
-                    text: 'Lihat Lainnya',
-                    onPressed: () => _openSearch(),
-                  ),
-                  const SizedBox(height: 22),
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            if (state.isLoadingAggregator && rekomendasiList.isEmpty)
+              const SizedBox(
+                height: 120,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryOrange,
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              )
+            else if (rekomendasiList.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Belum ada restoran. Tarik ke bawah untuk memuat ulang.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textGray),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    for (final r in rekomendasiList)
+                      FoodViewRestaurantCard(
+                        name: r.name,
+                        category: r.category,
+                        address: r.address,
+                        imageAsset: r.imageAsset,
+                        reviewerCount: r.distanceFromUser != null
+                            ? LocationService.formatDistance(
+                                r.distanceFromUser!)
+                            : r.reviewerCount,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => UserRestaurantDetailScreen(
+                                restaurant: r,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 8),
+                    FoodViewPrimaryButton(
+                      text: 'Lihat Lainnya',
+                      onPressed: () => _openSearch(),
+                    ),
+                    const SizedBox(height: 22),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

@@ -25,10 +25,13 @@ class FoodViewAggregatorRepository {
         mealClient = mealClient ?? MealApiClient(),
         reviewClient = reviewClient ?? ReviewApiClient();
 
-  /// Mengambil data restoran nyata dari Foursquare yang diperkaya dengan menu dan ulasan
+  /// Mengambil data restoran nyata dari Foursquare yang diperkaya dengan menu dan ulasan.
+  /// Jika [latitude] dan [longitude] diberikan, pencarian berdasarkan GPS pengguna.
   Future<List<RestaurantModel>> getEnrichedRestaurants({
     String? query,
     String? category,
+    double? latitude,
+    double? longitude,
   }) async {
     if (_cachedRestaurants != null && (query == null || query.isEmpty)) {
       return _cachedRestaurants!;
@@ -38,6 +41,8 @@ class FoodViewAggregatorRepository {
       final venues = await foursquareClient.searchVenues(
         query: query ?? (category ?? 'restaurant'),
         near: 'Makassar, Indonesia',
+        latitude: latitude,
+        longitude: longitude,
         limit: 8,
       );
 

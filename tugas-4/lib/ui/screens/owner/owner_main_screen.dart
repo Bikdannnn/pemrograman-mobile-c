@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../components/components.dart';
-import 'owner_chat_screen.dart';
 import 'owner_notification_screen.dart';
 import 'owner_profile_screen.dart';
 
-/// Main Shell untuk Role PEMILIK RESTORAN (`Chat Pelanggan`, `Notifikasi`, `Profil Restoran`)
-/// sesuai `PEMILIK RESTORAN.svg`.
+/// Main Shell untuk Role PEMILIK RESTORAN (`Notifikasi`, `Profil Restoran`)
+/// — tanpa fitur Chat.
 class OwnerMainScreen extends StatefulWidget {
   const OwnerMainScreen({super.key});
 
@@ -14,7 +13,7 @@ class OwnerMainScreen extends StatefulWidget {
 }
 
 class _OwnerMainScreenState extends State<OwnerMainScreen> {
-  int _currentIndex = 2; // Default membuka Profil Restoran / Dashboard atau Chat
+  int _currentIndex = 1; // Default membuka Profil Restoran
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +23,6 @@ class _OwnerMainScreenState extends State<OwnerMainScreen> {
         child: IndexedStack(
           index: _currentIndex,
           children: const [
-            OwnerChatListScreen(),
             OwnerNotificationScreen(),
             OwnerProfileScreen(),
           ],

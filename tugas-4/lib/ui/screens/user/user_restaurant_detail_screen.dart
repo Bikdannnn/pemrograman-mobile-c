@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
 import 'user_auth_screen.dart';
-import 'user_chat_screen.dart';
 import 'user_menu_detail_screen.dart';
 
 /// Layar Detail Restoran Dinamis sesuai `USER.svg`:
@@ -125,23 +124,6 @@ class _UserRestaurantDetailScreenState
                     ),
                     Row(
                       children: [
-                        FoodViewChatCircleButton(
-                          onTap: () async {
-                            if (!await _ensureLoggedIn(state)) return;
-                            if (!context.mounted) return;
-                            final chatThread =
-                                state.getChatThreadForRestaurant(restaurant);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => UserChatDetailScreen(
-                                  thread: chatThread,
-                                  associatedRestaurant: restaurant,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
                         FoodViewFavoriteButton(
                           isFavorite: restaurant.isFavorite,
                           onTap: () async {

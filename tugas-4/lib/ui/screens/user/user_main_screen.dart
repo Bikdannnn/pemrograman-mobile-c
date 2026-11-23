@@ -3,11 +3,10 @@ import 'package:provider/provider.dart';
 import '../../components/components.dart';
 import '../../view_models/foodview_ui_state.dart';
 import 'user_auth_screen.dart';
-import 'user_chat_screen.dart';
 import 'user_home_screen.dart';
 import 'user_profile_screen.dart';
 
-/// Main Shell untuk Role USER (`Home`, `Chat Toko`, `Profile`) sesuai `USER.svg`.
+/// Main Shell untuk Role USER (`Home`, `Profile`) — tanpa fitur Chat.
 class UserMainScreen extends StatefulWidget {
   const UserMainScreen({super.key});
 
@@ -17,20 +16,6 @@ class UserMainScreen extends StatefulWidget {
 
 class _UserMainScreenState extends State<UserMainScreen> {
   int _currentIndex = 0;
-
-  Future<void> _onTabSelected(int index, FoodViewUiState state) async {
-    // Jika user belum login dan menekan tab Chat Toko (index 1), tampilkan dialog "Masuk ke akun Anda untuk mengakses fitur ini"
-    if (index == 1 && !state.isUserLoggedIn) {
-      final goLogin = await FoodViewDialogs.showLoginRequiredDialog(context);
-      if (goLogin && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const UserAuthScreen()),
-        );
-      }
-      return;
-    }
-    setState(() => _currentIndex = index);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,14 +49,13 @@ class _UserMainScreenState extends State<UserMainScreen> {
                 );
               },
             ),
-            const UserChatListScreen(),
             const UserProfileScreen(),
           ],
         ),
       ),
       bottomNavigationBar: FoodViewUserBottomNav(
         currentIndex: _currentIndex,
-        onTap: (idx) => _onTabSelected(idx, state),
+        onTap: (idx) => setState(() => _currentIndex = idx),
       ),
     );
   }

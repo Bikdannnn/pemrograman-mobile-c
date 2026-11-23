@@ -58,19 +58,25 @@ class FoursquareClient {
       : _client = client ?? http.Client(),
         _apiKey = apiKey;
 
-  /// Mencari venue/restoran nyata di sekitar Makassar atau kota target
+  /// Mencari venue/restoran nyata di sekitar Makassar atau kota target.
+  /// Jika [latitude] dan [longitude] diberikan, pencarian menggunakan koordinat GPS pengguna.
   Future<List<FoursquareVenue>> searchVenues({
     String query = 'restaurant',
     String near = 'Makassar, Indonesia',
+    double? latitude,
+    double? longitude,
     int limit = 10,
   }) async {
     final apiKey = _apiKey;
     if (apiKey != null && apiKey.isNotEmpty) {
       try {
+        final locationParam = (latitude != null && longitude != null)
+            ? '&ll=$latitude,$longitude'
+            : '&near=${Uri.encodeComponent(near)}';
         final uri = Uri.parse(
           'https://api.foursquare.com/v3/places/search'
           '?query=${Uri.encodeComponent(query)}'
-          '&near=${Uri.encodeComponent(near)}'
+          '$locationParam'
           '&limit=$limit',
         );
 

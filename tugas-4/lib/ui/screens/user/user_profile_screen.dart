@@ -414,14 +414,18 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
     final state = context.watch<FoodViewUiState>();
     final query = _searchController.text.trim().toLowerCase();
 
-    final warungBuAtik = state.restaurants.firstWhere((r) => r.id == 'r_buatik');
-    final mbaAtun = state.restaurants.firstWhere((r) => r.id == 'r_mba_atun');
-    final fireflies = state.restaurants.firstWhere((r) => r.id == 'r_fireflies');
+    // Dinamis: mengambil restoran yang tersedia (bukan hardcoded ID)
+    final allRestaurants = state.restaurants;
 
     bool matches(RestaurantModel r) =>
         query.isEmpty ||
         r.name.toLowerCase().contains(query) ||
         r.category.toLowerCase().contains(query);
+
+    final todayRestaurant = allRestaurants.isNotEmpty ? allRestaurants.first : null;
+    final yesterdayRestaurants = allRestaurants.length > 1
+        ? allRestaurants.skip(1).take(2).toList()
+        : <RestaurantModel>[];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -456,60 +460,68 @@ class _UserRiwayatReviewScreenState extends State<UserRiwayatReviewScreen> {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-                children: [
-                  const Text(
-                    'Riwayat',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
+              child: allRestaurants.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Belum ada riwayat review.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textGray,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                      children: [
+                        const Text(
+                          'Riwayat',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (todayRestaurant != null && matches(todayRestaurant)) ...[
+                          const Text(
+                            'Hari Ini',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textGray,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FoodViewRiwayatRestaurantCard(
+                            name: todayRestaurant.name,
+                            category: todayRestaurant.category,
+                            address: todayRestaurant.address,
+                            imageAsset: todayRestaurant.imageAsset,
+                            onViewTap: () =>
+                                _openDetail(context, todayRestaurant),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        if (yesterdayRestaurants.isNotEmpty) ...[
+                          const Text(
+                            'Kemarin',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textGray,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          for (final r in yesterdayRestaurants)
+                            if (matches(r))
+                              FoodViewRiwayatRestaurantCard(
+                                name: r.name,
+                                category: r.category,
+                                address: r.address,
+                                imageAsset: r.imageAsset,
+                                onViewTap: () => _openDetail(context, r),
+                              ),
+                        ],
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (matches(warungBuAtik)) ...[
-                    const Text(
-                      'Hari Ini',
-                      style:
-                          TextStyle(fontSize: 10.5, color: AppColors.textGray),
-                    ),
-                    const SizedBox(height: 8),
-                    FoodViewRiwayatRestaurantCard(
-                      name: warungBuAtik.name,
-                      category: warungBuAtik.category,
-                      address: warungBuAtik.address,
-                      imageAsset: warungBuAtik.imageAsset,
-                      onViewTap: () => _openDetail(context, warungBuAtik),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  if (matches(mbaAtun) || matches(fireflies)) ...[
-                    const Text(
-                      'Kemarin',
-                      style:
-                          TextStyle(fontSize: 10.5, color: AppColors.textGray),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (matches(mbaAtun))
-                    FoodViewRiwayatRestaurantCard(
-                      name: mbaAtun.name,
-                      category: mbaAtun.category,
-                      address: mbaAtun.address,
-                      imageAsset: mbaAtun.imageAsset,
-                      onViewTap: () => _openDetail(context, mbaAtun),
-                    ),
-                  if (matches(fireflies))
-                    FoodViewRiwayatRestaurantCard(
-                      name: fireflies.name,
-                      category: fireflies.category,
-                      address: fireflies.address,
-                      imageAsset: fireflies.imageAsset,
-                      onViewTap: () => _openDetail(context, fireflies),
-                    ),
-                ],
-              ),
             ),
           ],
         ),
