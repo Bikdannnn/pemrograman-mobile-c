@@ -4,6 +4,7 @@ import '../../core/repositories/foodview_aggregator_repository.dart';
 import '../../data/services/firebase_hybrid_service.dart';
 import '../../data/services/location_service.dart';
 import '../../data/services/open_culinary_api_service.dart';
+import '../../data/services/real_restaurant_menu_service.dart';
 
 enum AppActiveRole { user, pemilikRestoran }
 
@@ -171,6 +172,7 @@ class FoodViewUiState extends ChangeNotifier {
       latitude: _userLatitude,
       longitude: _userLongitude,
     );
+    menus = RealRestaurantMenuService.getAllRealMenus();
     _applyDistanceSorting();
   }
 
@@ -378,25 +380,29 @@ class FoodViewUiState extends ChangeNotifier {
   List<MenuModel> menus = [];
   List<RestaurantModel> restaurants = [];
 
-  /// Mengambil daftar menu spesifik untuk masing-masing restoran.
-  /// Menu dicocokkan berdasarkan restaurantId, atau generate menu dari API
-  /// berdasarkan kategori restoran.
+  /// Mengambil daftar menu nyata autentik spesifik untuk masing-masing restoran.
   List<MenuModel> getMenusForRestaurant(RestaurantModel restaurant) {
-    final matched = menus.where((m) => m.restaurantId == restaurant.id).toList();
+    // 1. Cocokkan dari list menus berdasarkan restaurantId atau kemiripan nama resto
+    final matched = menus.where((m) {
+      if (m.restaurantId == restaurant.id) return true;
+      if (restaurant.id == 'fsq_makassar_01' && m.restaurantId == 'r_buatik') return true;
+      final rName = restaurant.name.toLowerCase();
+      final mResto = m.restaurantName.toLowerCase();
+      if (rName.contains('atik') && mResto.contains('atik')) return true;
+      if (rName.contains('bebek') && mResto.contains('bebek')) return true;
+      if (rName.contains('mie titi') && mResto.contains('mie titi')) return true;
+      if (rName.contains('konro') && mResto.contains('konro')) return true;
+      if (rName.contains('coto') && mResto.contains('coto')) return true;
+      if (rName.contains('nelayan') && mResto.contains('nelayan')) return true;
+      if (rName.contains('black canyon') && mResto.contains('black canyon')) return true;
+      return false;
+    }).toList();
     if (matched.isNotEmpty) return matched;
 
-    // Fallback: tampilkan menu dari API yang cocok kategorinya
-    final tags = restaurant.categoryTags;
-    final fallback = menus.where((m) {
-      return tags.any(
-        (tag) =>
-            m.categoryTag.toLowerCase().contains(tag.toLowerCase()) ||
-            m.restaurantCategory.toLowerCase().contains(tag.toLowerCase()),
-      );
-    }).take(6).toList();
-    if (fallback.isNotEmpty) return fallback;
+    // 2. Ambil langsung dari RealRestaurantMenuService
+    final fromService = RealRestaurantMenuService.getMenusForRestaurantId(restaurant.id);
+    if (fromService.isNotEmpty) return fromService;
 
-    // Jika masih kosong, tampilkan 6 menu pertama yang tersedia
     return menus.take(6).toList();
   }
 

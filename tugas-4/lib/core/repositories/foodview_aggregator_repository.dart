@@ -1,6 +1,7 @@
 import '../network/foursquare_client.dart';
 import '../network/meal_api_client.dart';
 import '../network/review_api_client.dart';
+import '../../data/services/real_restaurant_menu_service.dart';
 import '../../ui/view_models/foodview_ui_state.dart';
 
 /// Aggregator Repository yang mengorkestrasikan 3 provider API:
@@ -130,47 +131,60 @@ class FoodViewAggregatorRepository {
     }
   }
 
-  /// Mengambil menu hidangan HD dari TheMealDB & DummyJSON Recipes API
-  Future<List<MenuModel>> getEnrichedMenus({String? category, int limit = 12}) async {
+  /// Mengambil menu nyata autentik per restoran di Makassar
+  Future<List<MenuModel>> getEnrichedMenus({String? category, int limit = 50}) async {
     if (_cachedMenus != null && (category == null || category.isEmpty)) {
       return _cachedMenus!;
     }
 
     try {
-      final recipes = category != null && category.isNotEmpty
-          ? await mealClient.fetchMealsByCategory(category, limit: limit)
-          : await mealClient.fetchRecipes(limit: limit);
+      final realMenus = RealRestaurantMenuService.getAllRealMenus();
+      final realReviews = await getRealCustomerReviews(count: 6);
 
-      final realReviews = await getRealCustomerReviews(count: 4);
-
-      final menus = recipes.map((r) {
+      final menus = realMenus.map((m) {
+        final attachedReviews = [
+          ...m.reviews,
+          if (realReviews.isNotEmpty)
+            realReviews[m.id.hashCode.abs() % realReviews.length],
+        ];
         return MenuModel(
-          id: r.id,
-          restaurantId: 'r_buatik',
-          name: r.name,
-          price: r.priceFormatted,
-          description: r.instructions.isNotEmpty
-              ? r.instructions
-              : 'Hidangan istimewa ${r.name} dengan cita rasa autentik dan bahan berkualitas tinggi.',
-          imageAsset: r.imageUrl,
-          networkImageUrl: r.imageUrl,
-          restaurantName: 'Warung Bu Atik & Mitra FoodView',
-          restaurantCategory: r.category,
-          restaurantAddress: 'Jl. Samata, Borong Indah, Makassar',
-          reviewerCount: '${(3 + (r.calories % 4))},2rb',
-          categoryTag: r.category,
-          ingredients: r.ingredients,
-          calories: r.calories,
-          reviews: realReviews,
+          id: m.id,
+          restaurantId: m.restaurantId,
+          name: m.name,
+          price: m.price,
+          description: m.description,
+          imageAsset: m.imageAsset,
+          networkImageUrl: m.networkImageUrl,
+          restaurantName: m.restaurantName,
+          restaurantCategory: m.restaurantCategory,
+          restaurantAddress: m.restaurantAddress,
+          reviewerCount: m.reviewerCount,
+          categoryTag: m.categoryTag,
+          ingredients: m.ingredients,
+          calories: m.calories,
+          isFavorite: m.isFavorite,
+          reviews: attachedReviews,
         );
       }).toList();
+
+      final filtered = category != null && category.isNotEmpty
+          ? menus
+              .where((m) =>
+                  m.categoryTag
+                      .toLowerCase()
+                      .contains(category.toLowerCase()) ||
+                  m.restaurantCategory
+                      .toLowerCase()
+                      .contains(category.toLowerCase()))
+              .toList()
+          : menus;
 
       if (category == null || category.isEmpty) {
         _cachedMenus = menus;
       }
-      return menus;
+      return filtered.take(limit).toList();
     } catch (_) {
-      return _cachedMenus ?? const [];
+      return RealRestaurantMenuService.getAllRealMenus();
     }
   }
 
