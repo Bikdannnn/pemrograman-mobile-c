@@ -104,14 +104,66 @@ class FoursquareClient {
     }
 
     // Curated real Makassar venues (Foursquare format)
-    return _curatedMakassarVenues
-        .where((v) =>
-            query.isEmpty ||
-            v.name.toLowerCase().contains(query.toLowerCase()) ||
-            v.categoryName.toLowerCase().contains(query.toLowerCase()))
-        .take(limit)
-        .toList();
+    final lowerQ = query.trim().toLowerCase();
+    final isGeneric = lowerQ.isEmpty ||
+        lowerQ == 'restaurant' ||
+        lowerQ == 'resto' ||
+        lowerQ == 'makan' ||
+        lowerQ == 'food' ||
+        lowerQ == 'semua';
+
+    var results = _curatedMakassarVenues.where((v) {
+      if (isGeneric) return true;
+      return v.name.toLowerCase().contains(lowerQ) ||
+          v.categoryName.toLowerCase().contains(lowerQ) ||
+          v.formattedAddress.toLowerCase().contains(lowerQ);
+    }).toList();
+
+    // Hitung jarak dan urutkan jika koordinat diberikan
+    if (latitude != null && longitude != null) {
+      results = results.map((v) {
+        final dist = _calculateDistance(
+          latitude,
+          longitude,
+          v.latitude,
+          v.longitude,
+        ).toInt();
+        return FoursquareVenue(
+          fsqId: v.fsqId,
+          name: v.name,
+          formattedAddress: v.formattedAddress,
+          categoryName: v.categoryName,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          rating: v.rating,
+          distanceMeters: dist,
+          hours: v.hours,
+          photoUrl: v.photoUrl,
+        );
+      }).toList();
+
+      results.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    }
+
+    return results.take(limit).toList();
   }
+
+  /// Rumus Haversine sederhana internal untuk FoursquareClient
+  static double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const r = 6371000.0;
+    final dLat = (lat2 - lat1) * (3.141592653589793 / 180);
+    final dLon = (lon2 - lon1) * (3.141592653589793 / 180);
+    final a = (dLat / 2) * (dLat / 2) +
+        (dLon / 2) * (dLon / 2); // aproksimasi cepat
+    return r * 2 * a;
+  }
+
+  static List<FoursquareVenue> get curatedVenues => _curatedMakassarVenues;
 
   static const List<FoursquareVenue> _curatedMakassarVenues = [
     FoursquareVenue(

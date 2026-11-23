@@ -76,6 +76,44 @@ class LocationService {
 
   static double _degToRad(double deg) => deg * (pi / 180);
 
+  /// Mendeteksi nama wilayah / kecamatan berdasarkan koordinat
+  static String detectAreaName(double lat, double lon) {
+    // Area Samata / Somba Opu (Gowa)
+    if (lat <= -5.18 && lon >= 119.46) {
+      return 'Samata, Somba Opu';
+    }
+    // Area Panakkukang (Makassar)
+    if (lat >= -5.17 && lat <= -5.14 && lon >= 119.43) {
+      return 'Panakkukang, Makassar';
+    }
+    // Area Losari / Ujung Pandang (Makassar)
+    if (lon < 119.43) {
+      return 'Losari / Ujung Pandang';
+    }
+    return 'Makassar & Sekitarnya';
+  }
+
+  /// Menentukan area/kecamatan dari teks alamat
+  static String extractDistrict(String address) {
+    final lower = address.toLowerCase();
+    if (lower.contains('somba opu') || lower.contains('samata')) {
+      return 'Kec. Somba Opu, Gowa';
+    }
+    if (lower.contains('panakkukang')) {
+      return 'Kec. Panakkukang, Makassar';
+    }
+    if (lower.contains('losari')) {
+      return 'Losari, Makassar';
+    }
+    if (lower.contains('ujung pandang')) {
+      return 'Kec. Ujung Pandang, Makassar';
+    }
+    if (lower.contains('wajo')) {
+      return 'Kec. Wajo, Makassar';
+    }
+    return 'Makassar';
+  }
+
   /// Format jarak ke string yang user-friendly
   static String formatDistance(double meters) {
     if (meters < 1000) {

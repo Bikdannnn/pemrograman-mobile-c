@@ -152,18 +152,57 @@ class FoodViewUiState extends ChangeNotifier {
   double? get userLatitude => _userLatitude;
   double? get userLongitude => _userLongitude;
 
+  String get currentAreaName {
+    if (_userLatitude != null && _userLongitude != null) {
+      return LocationService.detectAreaName(_userLatitude!, _userLongitude!);
+    }
+    return 'Samata, Somba Opu';
+  }
+
   FoodViewUiState() {
+    _initInitialData();
     _initializeServices();
+  }
+
+  void _initInitialData() {
+    _userLatitude = -5.2035;
+    _userLongitude = 119.4932;
+    restaurants = _aggregatorRepo.getInitialCuratedRestaurants(
+      latitude: _userLatitude,
+      longitude: _userLongitude,
+    );
+    _applyDistanceSorting();
+  }
+
+  void _applyDistanceSorting() {
+    if (_userLatitude != null && _userLongitude != null) {
+      for (final r in restaurants) {
+        r.distanceFromUser = LocationService.calculateDistanceMeters(
+          _userLatitude!,
+          _userLongitude!,
+          r.latitude,
+          r.longitude,
+        );
+        r.distanceTag = LocationService.distanceTag(r.distanceFromUser!);
+      }
+      restaurants.sort((a, b) {
+        final da = a.distanceFromUser ?? double.infinity;
+        final db = b.distanceFromUser ?? double.infinity;
+        return da.compareTo(db);
+      });
+    }
   }
 
   Future<void> _initializeServices() async {
     await _firebaseService.initialize();
 
-    // Dapatkan lokasi pengguna terlebih dahulu
+    // Dapatkan lokasi pengguna terlebih dahulu (GPS atau fallback)
     final position = await _locationService.getCurrentPosition();
     if (position != null) {
       _userLatitude = position.latitude;
       _userLongitude = position.longitude;
+      _applyDistanceSorting();
+      notifyListeners();
     }
 
     await Future.wait([

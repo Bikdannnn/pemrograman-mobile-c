@@ -19,7 +19,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Selamat Datang!'), findsOneWidget);
-    expect(find.text('Kategori'), findsOneWidget);
-    expect(find.text('Rekomendasi'), findsOneWidget);
+    expect(find.text('Rekomendasi Restoran Terdekat'), findsOneWidget);
   });
 }

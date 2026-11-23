@@ -27,6 +27,44 @@ class FoodViewAggregatorRepository {
 
   /// Mengambil data restoran nyata dari Foursquare yang diperkaya dengan menu dan ulasan.
   /// Jika [latitude] dan [longitude] diberikan, pencarian berdasarkan GPS pengguna.
+  List<RestaurantModel> getInitialCuratedRestaurants({
+    double? latitude,
+    double? longitude,
+  }) {
+    final venues = FoursquareClient.curatedVenues;
+    final list = <RestaurantModel>[];
+    for (var i = 0; i < venues.length; i++) {
+      final v = venues[i];
+      list.add(
+        RestaurantModel(
+          id: v.fsqId,
+          name: v.name,
+          category: v.categoryName,
+          categoryTags: _resolveTags(v.categoryName),
+          address: v.formattedAddress,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          hours: v.hours ?? '08.00 - 22.00 WITA',
+          phone: '0812${(41100000 + i * 1111)}',
+          description:
+              '${v.name} menyajikan hidangan ${v.categoryName} pilihan terbaik di Makassar.',
+          imageAsset: v.photoUrl ?? 'assets/images/user_auth_header.png',
+          galleryAssets: [
+            v.photoUrl ?? 'assets/images/user_auth_header.png',
+            'assets/images/user_auth_header.png',
+          ],
+          reviewerCount: '${(2 + (i % 5))},${i + 2}rb',
+          distanceTag: '${(v.distanceMeters / 1000).toStringAsFixed(1)} km',
+          priceTag: 'Rp25.000 - Rp85.000',
+          userHistoryComment: 'Rekomendasi terbaik di sekitar lokasi Anda.',
+        ),
+      );
+    }
+    return list;
+  }
+
+  /// Mengambil data restoran nyata dari Foursquare yang diperkaya dengan menu dan ulasan.
+  /// Jika [latitude] dan [longitude] diberikan, pencarian berdasarkan GPS pengguna.
   Future<List<RestaurantModel>> getEnrichedRestaurants({
     String? query,
     String? category,
