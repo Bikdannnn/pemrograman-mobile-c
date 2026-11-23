@@ -108,6 +108,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         await Future.wait([
           state.loadOpenApiDishes(),
           state.loadWeatherRecommendation(),
+          state.fetchAggregatedMultiApiData(),
         ]);
       },
       child: SingleChildScrollView(

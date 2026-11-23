@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'foodview_network_image.dart';
 import 'foodview_star_rating.dart';
 
 /// Kartu Restoran Horizontal sesuai `Components.svg` & `USER.svg` (Rekomendasi & Pencarian):
@@ -47,14 +48,11 @@ class FoodViewRestaurantCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ClipRRect(
+            FoodViewUniversalImage(
+              imagePath: imageAsset,
+              width: 68,
+              height: 68,
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                imageAsset,
-                width: 68,
-                height: 68,
-                fit: BoxFit.cover,
-              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -205,14 +203,11 @@ class FoodViewTopOfTheWeekCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
+                        FoodViewUniversalImage(
+                          imagePath: dishImageAsset,
+                          width: 60,
+                          height: 60,
                           borderRadius: BorderRadius.circular(6),
-                          child: Image.asset(
-                            dishImageAsset,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -253,14 +248,11 @@ class FoodViewTopOfTheWeekCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                ClipRRect(
+                FoodViewUniversalImage(
+                  imagePath: sideImageAsset,
+                  width: 68,
+                  height: 68,
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    sideImageAsset,
-                    width: 68,
-                    height: 68,
-                    fit: BoxFit.cover,
-                  ),
                 ),
               ],
             ),
@@ -310,14 +302,11 @@ class FoodViewRiwayatRestaurantCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipRRect(
+              FoodViewUniversalImage(
+                imagePath: imageAsset,
+                width: 68,
+                height: 68,
                 borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  imageAsset,
-                  width: 68,
-                  height: 68,
-                  fit: BoxFit.cover,
-                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -440,14 +429,11 @@ class FoodViewFavoriteRestaurantCard extends StatelessWidget {
           children: [
             Stack(
               children: [
-                ClipRRect(
+                FoodViewUniversalImage(
+                  imagePath: imageAsset,
+                  width: 70,
+                  height: 70,
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    imageAsset,
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                  ),
                 ),
                 Positioned(
                   left: 6,

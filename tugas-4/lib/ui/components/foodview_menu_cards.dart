@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'foodview_network_image.dart';
 import 'foodview_star_rating.dart';
 
 /// Kartu Vertikal "Favoritku" pada Beranda User & `Components.svg` (contoh: `Mie Ayam` / `Ayam Goreng Rica`):
@@ -45,15 +46,12 @@ class FoodViewFavoritkuMenuCard extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                ClipRRect(
+                FoodViewUniversalImage(
+                  imagePath: imageAsset,
+                  width: 156,
+                  height: 104,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(10),
-                  ),
-                  child: Image.asset(
-                    imageAsset,
-                    width: 156,
-                    height: 104,
-                    fit: BoxFit.cover,
                   ),
                 ),
                 Positioned(
@@ -193,13 +191,10 @@ class FoodViewRestaurantMenuGridCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: ClipRRect(
+            child: FoodViewUniversalImage(
+              imagePath: imageAsset,
+              width: double.infinity,
               borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                imageAsset,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
             ),
           ),
           const SizedBox(height: 5),
@@ -368,14 +363,11 @@ class FoodViewFavoriteMenuDetailCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                ClipRRect(
+                FoodViewUniversalImage(
+                  imagePath: imageAsset,
+                  width: 68,
+                  height: 68,
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    imageAsset,
-                    width: 68,
-                    height: 68,
-                    fit: BoxFit.cover,
-                  ),
                 ),
               ],
             ),
@@ -433,14 +425,11 @@ class FoodViewOwnerMenuCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
+            FoodViewUniversalImage(
+              imagePath: imageAsset,
+              width: 66,
+              height: 66,
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                imageAsset,
-                width: 66,
-                height: 66,
-                fit: BoxFit.cover,
-              ),
             ),
             const SizedBox(width: 12),
             Expanded(

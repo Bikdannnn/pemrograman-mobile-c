@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'foodview_star_rating.dart';
 
+ImageProvider _resolveAvatarProvider(String path) {
+  final clean = path.trim();
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return NetworkImage(clean);
+  }
+  return AssetImage(clean);
+}
+
 /// Item Ulasan/Komentar Pelanggan sesuai `Components.svg`, `USER.svg`, dan `PEMILIK RESTORAN.svg`:
 /// Avatar bulat di kiri, nama pengguna abu-abu, teks komentar hitam, dan 5 bintang di bawahnya.
 class FoodViewReviewCommentTile extends StatelessWidget {
@@ -27,7 +35,7 @@ class FoodViewReviewCommentTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundImage: AssetImage(avatarAsset),
+            backgroundImage: _resolveAvatarProvider(avatarAsset),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -90,7 +98,7 @@ class FoodViewChatListTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 23,
-              backgroundImage: AssetImage(avatarAsset),
+              backgroundImage: _resolveAvatarProvider(avatarAsset),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -232,7 +240,7 @@ class FoodViewNotificationTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 21,
-              backgroundImage: AssetImage(avatarAsset),
+              backgroundImage: _resolveAvatarProvider(avatarAsset),
             ),
             const SizedBox(width: 12),
             Expanded(

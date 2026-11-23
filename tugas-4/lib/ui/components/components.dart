@@ -8,6 +8,7 @@ export 'foodview_dialogs.dart';
 export 'foodview_filter_dialog.dart';
 export 'foodview_map_card.dart';
 export 'foodview_menu_cards.dart';
+export 'foodview_network_image.dart';
 export 'foodview_restaurant_cards.dart';
 export 'foodview_search_bar.dart';
 export 'foodview_star_rating.dart';

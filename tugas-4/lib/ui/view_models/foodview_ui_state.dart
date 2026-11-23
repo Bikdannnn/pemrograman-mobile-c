@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/advanced_dart/api_state.dart';
+import '../../core/repositories/foodview_aggregator_repository.dart';
 import '../../data/services/firebase_hybrid_service.dart';
 import '../../data/services/open_culinary_api_service.dart';
 
@@ -157,6 +158,15 @@ class OwnerNotificationModel {
 class FoodViewUiState extends ChangeNotifier {
   final OpenCulinaryApiService _openApiService = OpenCulinaryApiService();
   final FirebaseHybridService _firebaseService = FirebaseHybridService.instance;
+  final FoodViewAggregatorRepository _aggregatorRepo = FoodViewAggregatorRepository();
+
+  FoodViewAggregatorRepository get aggregatorRepository => _aggregatorRepo;
+
+  bool _isLoadingAggregator = false;
+  bool get isLoadingAggregator => _isLoadingAggregator;
+
+  String? _aggregatorError;
+  String? get aggregatorError => _aggregatorError;
 
   FoodViewUiState() {
     _initializeServices();
@@ -167,7 +177,44 @@ class FoodViewUiState extends ChangeNotifier {
     await Future.wait([
       loadOpenApiDishes(),
       loadWeatherRecommendation(),
+      fetchAggregatedMultiApiData(),
     ]);
+  }
+
+  /// Multi-API Orchestration: Menarik data riil gabungan dari Foursquare, TheMealDB, dan RandomUser
+  Future<void> fetchAggregatedMultiApiData() async {
+    _isLoadingAggregator = true;
+    _aggregatorError = null;
+    notifyListeners();
+    try {
+      final enrichedVenues = await _aggregatorRepo.getEnrichedRestaurants();
+      if (enrichedVenues.isNotEmpty) {
+        for (final venue in enrichedVenues) {
+          final idx = restaurants.indexWhere((r) => r.id == venue.id);
+          if (idx >= 0) {
+            restaurants[idx] = venue;
+          } else {
+            restaurants.add(venue);
+          }
+        }
+      }
+      final enrichedMenus = await _aggregatorRepo.getEnrichedMenus();
+      if (enrichedMenus.isNotEmpty) {
+        for (final m in enrichedMenus) {
+          final idx = menus.indexWhere((existing) => existing.id == m.id);
+          if (idx >= 0) {
+            menus[idx] = m;
+          } else {
+            menus.add(m);
+          }
+        }
+      }
+    } catch (e) {
+      _aggregatorError = e.toString();
+    } finally {
+      _isLoadingAggregator = false;
+      notifyListeners();
+    }
   }
 
   AppActiveRole _activeRole = AppActiveRole.user;
@@ -373,7 +420,7 @@ class FoodViewUiState extends ChangeNotifier {
       ];
 
   // Seluruh Menu Lengkap Lintas Restoran (agar setiap menu & restoran yang diklik menampilkan halaman berbeda!)
-  late final List<MenuModel> menus = [
+  late List<MenuModel> menus = [
     // --- Menu Warung Bu Atik (r_buatik) ---
     MenuModel(
       id: 'm1',
@@ -733,7 +780,7 @@ class FoodViewUiState extends ChangeNotifier {
   }
 
   // Daftar Restoran Lengkap dengan Koordinat Makassar, Kategori, Harga & Jam Operasional Berbeda
-  late final List<RestaurantModel> restaurants = [
+  late List<RestaurantModel> restaurants = [
     RestaurantModel(
       id: 'r_buatik',
       name: 'Warung Bu Atik',
